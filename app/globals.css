@@ -1,0 +1,96 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-deep-night text-cloud-white;
+  }
+  
+  /* Custom scrollbar styling */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  
+  ::-webkit-scrollbar-track {
+    @apply bg-deep-night;
+  }
+  
+  ::-webkit-scrollbar-thumb {
+    @apply bg-muted-gray rounded;
+  }
+  
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-soft-lavender;
+  }
+}
+
+@layer components {
+  /* Primary button style */
+  .btn-primary {
+    @apply bg-astral-blue text-cloud-white px-6 py-3 rounded-lg;
+    @apply transition-all duration-300 hover:brightness-110;
+    @apply hover:shadow-lg hover:shadow-astral-blue/20;
+  }
+  
+  /* Secondary button style */
+  .btn-secondary {
+    @apply border border-soft-lavender text-soft-lavender px-6 py-3 rounded-lg;
+    @apply transition-all duration-300 hover:bg-soft-lavender/10;
+  }
+  
+  /* Input field style */
+  .input-field {
+    @apply bg-deep-night border border-muted-gray text-cloud-white;
+    @apply px-4 py-3 rounded-lg w-full;
+    @apply focus:outline-none focus:border-astral-blue;
+    @apply placeholder-muted-gray transition-all duration-300;
+  }
+  
+  /* Textarea style */
+  .textarea-field {
+    @apply input-field min-h-[200px] resize-y text-lg leading-relaxed;
+  }
+  
+  /* Card style */
+  .card {
+    @apply bg-deep-night border border-soft-lavender/20 rounded-lg p-6;
+    @apply transition-all duration-300 hover:border-soft-lavender/40;
+  }
+  
+  /* Tag/pill style */
+  .tag {
+    @apply inline-block bg-muted-gray/20 text-muted-gray;
+    @apply px-3 py-1 rounded-full text-sm;
+  }
+  
+  /* Loading spinner */
+  .spinner {
+    @apply animate-spin rounded-full h-8 w-8;
+    @apply border-2 border-soft-lavender border-t-transparent;
+  }
+}
+
+/* Ethereal background gradient animation */
+@keyframes ethereal-pulse {
+  0%, 100% {
+    opacity: 0.35;
+  }
+  50% {
+    opacity: 0.65;
+  }
+}
+
+@keyframes star-twinkle {
+  0%, 100% { opacity: 0.3; }
+  50% { opacity: 0.7; }
+}
+
+.ethereal-bg {
+  background: 
+    radial-gradient(ellipse 100% 60% at 50% -10%, rgba(195, 177, 225, 0.12) 0%, transparent 55%),
+    radial-gradient(ellipse 70% 50% at 90% 60%, rgba(74, 78, 105, 0.18) 0%, transparent 50%),
+    radial-gradient(ellipse 60% 40% at 5% 70%, rgba(195, 177, 225, 0.08) 0%, transparent 45%);
+  animation: ethereal-pulse 10s ease-in-out infinite;
+}
