@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createRouteHandlerClient } from '@/lib/supabase';
+import { createClient } from '@supabase/supabase-js';
 
 export async function POST(request: Request) {
   try {
@@ -14,7 +15,7 @@ export async function POST(request: Request) {
 
     const supabase = await createRouteHandlerClient();
 
-    // Sign up the user
+    // Sign up the user (Supabase trigger handle_new_user creates profile + subscription)
     const { data: authData, error: authError } = await supabase.auth.signUp({
       email,
       password,
@@ -28,22 +29,22 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Failed to create user' }, { status: 500 });
     }
 
-    // Create profile
-    const { error: profileError } = await supabase
-      .from('profiles')
-      .insert({
-        id: authData.user.id,
-        email: authData.user.email!,
-      });
-
-    if (profileError) {
-      console.error('Profile creation error:', profileError);
+    // Save the first dream using service role so RLS doesn't block (session may not be in cookies yet)
+    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    if (!serviceRoleKey) {
+      return NextResponse.json(
+        { error: 'Server misconfiguration: missing SUPABASE_SERVICE_ROLE_KEY' },
+        { status: 500 }
+      );
     }
+    const supabaseAdmin = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      serviceRoleKey,
+      { auth: { autoRefreshToken: false, persistSession: false } }
+    );
 
-    // Save the first dream
     const wordCount = dreamText.trim().split(/\s+/).length;
-    
-    const { data: dreamData, error: dreamError } = await supabase
+    const { data: dreamData, error: dreamError } = await supabaseAdmin
       .from('dream_entries')
       .insert({
         user_id: authData.user.id,
