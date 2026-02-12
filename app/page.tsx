@@ -8,6 +8,7 @@ export default function LandingPage() {
   const [dreamText, setDreamText] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showSignInForm, setShowSignInForm] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const router = useRouter();
@@ -94,58 +95,75 @@ export default function LandingPage() {
               />
             </div>
 
-            <div className="grid md:grid-cols-2 gap-4">
-              <div>
-                <label htmlFor="email" className="block text-sm font-medium mb-2 text-muted-gray">
-                  Email
-                </label>
-                <input
-                  type="email"
-                  id="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="input-field"
-                  placeholder="your@email.com"
-                  required
-                />
-              </div>
-              <div>
-                <label htmlFor="password" className="block text-sm font-medium mb-2 text-muted-gray">
-                  Password
-                </label>
-                <input
-                  type="password"
-                  id="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="input-field"
-                  placeholder="••••••••"
-                  minLength={6}
-                  required
-                />
-              </div>
-            </div>
+            {!showSignInForm ? (
+              <>
+                <button
+                  type="button"
+                  onClick={() => setShowSignInForm(true)}
+                  className="btn-secondary w-full text-base py-3.5 rounded-xl font-medium border-soft-lavender/40 hover:border-soft-lavender/60 hover:bg-soft-lavender/10"
+                >
+                  Sign in to save your dream
+                </button>
+                <p className="text-center text-sm text-muted-gray">
+                  New here? Click above to create an account with your dream.
+                </p>
+              </>
+            ) : (
+              <>
+                <div className="grid md:grid-cols-2 gap-4">
+                  <div>
+                    <label htmlFor="email" className="block text-sm font-medium mb-2 text-muted-gray">
+                      Email
+                    </label>
+                    <input
+                      type="email"
+                      id="email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      className="input-field rounded-xl focus:ring-2 focus:ring-soft-lavender/30"
+                      placeholder="your@email.com"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="password" className="block text-sm font-medium mb-2 text-muted-gray">
+                      Password
+                    </label>
+                    <input
+                      type="password"
+                      id="password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      className="input-field rounded-xl focus:ring-2 focus:ring-soft-lavender/30"
+                      placeholder="••••••••"
+                      minLength={6}
+                      required
+                    />
+                  </div>
+                </div>
 
-            {error && (
-              <div className="bg-red-900/20 border border-red-500/50 text-red-200 px-4 py-3 rounded-lg text-sm">
-                {error}
-              </div>
+                {error && (
+                  <div className="bg-red-900/20 border border-red-500/50 text-red-200 px-4 py-3 rounded-xl text-sm">
+                    {error}
+                  </div>
+                )}
+
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="btn-primary w-full text-base py-3.5 rounded-xl disabled:opacity-50 disabled:cursor-not-allowed font-semibold shadow-lg shadow-astral-blue/20"
+                >
+                  {loading ? 'Creating account...' : 'Create account & save dream'}
+                </button>
+
+                <p className="text-center text-sm text-muted-gray">
+                  Already have an account?{' '}
+                  <Link href="/login" className="text-soft-lavender hover:underline">
+                    Sign in
+                  </Link>
+                </p>
+              </>
             )}
-
-            <button
-              type="submit"
-              disabled={loading}
-              className="btn-primary w-full text-lg py-4 rounded-xl disabled:opacity-50 disabled:cursor-not-allowed font-medium shadow-lg shadow-astral-blue/20"
-            >
-              {loading ? 'Creating your account...' : 'Begin your journey'}
-            </button>
-
-            <p className="text-center text-sm text-muted-gray">
-              Already have an account?{' '}
-              <Link href="/login" className="text-soft-lavender hover:underline">
-                Sign in
-              </Link>
-            </p>
           </form>
         </div>
       </section>
