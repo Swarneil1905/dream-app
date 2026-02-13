@@ -9,20 +9,37 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
 
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET || '';
 
+// Disable body parsing for webhook route
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.text();
     const headersList = await headers();
     const signature = headersList.get('stripe-signature');
 
+    console.log('Webhook received:', {
+      hasSignature: !!signature,
+      hasWebhookSecret: !!webhookSecret,
+      bodyLength: body.length,
+    });
+
     if (!signature) {
+      console.error('Webhook missing signature');
       return NextResponse.json({ error: 'No signature' }, { status: 400 });
+    }
+
+    if (!webhookSecret) {
+      console.error('STRIPE_WEBHOOK_SECRET is not configured');
+      return NextResponse.json({ error: 'Webhook secret not configured' }, { status: 500 });
     }
 
     // Verify webhook signature
     let event: Stripe.Event;
     try {
       event = stripe.webhooks.constructEvent(body, signature, webhookSecret);
+      console.log('Webhook event verified:', event.type, event.id);
     } catch (err) {
       console.error('Webhook signature verification failed:', err);
       return NextResponse.json({ error: 'Invalid signature' }, { status: 400 });
@@ -37,24 +54,51 @@ export async function POST(request: NextRequest) {
         const customerId = session.customer as string;
         const subscriptionId = session.subscription as string;
         const userId = session.client_reference_id;
-        if (userId) {
-          // Update subscription status
-          await supabase
-            .from('subscriptions')
-            .upsert({
-              user_id: userId,
-              stripe_customer_id: customerId,
-              stripe_subscription_id: subscriptionId,
-              plan_name: 'unlimited_pro',
-              last_webhook_event: event,
-            });
+        
+        console.log('Processing checkout.session.completed:', {
+          customerId,
+          subscriptionId,
+          userId,
+        });
 
-          // Update user profile
-          await supabase
-            .from('profiles')
-            .update({ subscription_status: 'active' })
-            .eq('id', userId);
+        if (!userId) {
+          console.error('No user_id in client_reference_id');
+          return NextResponse.json({ error: 'No user ID in session' }, { status: 400 });
         }
+
+        if (!customerId || !subscriptionId) {
+          console.error('Missing customer or subscription ID:', { customerId, subscriptionId });
+          return NextResponse.json({ error: 'Missing customer or subscription ID' }, { status: 400 });
+        }
+
+        // Update subscription status
+        const { error: subError } = await supabase
+          .from('subscriptions')
+          .upsert({
+            user_id: userId,
+            stripe_customer_id: customerId,
+            stripe_subscription_id: subscriptionId,
+            plan_name: 'unlimited_pro',
+            last_webhook_event: event,
+          });
+
+        if (subError) {
+          console.error('Error updating subscriptions table:', subError);
+          return NextResponse.json({ error: 'Database update failed' }, { status: 500 });
+        }
+
+        // Update user profile
+        const { error: profileError } = await supabase
+          .from('profiles')
+          .update({ subscription_status: 'active' })
+          .eq('id', userId);
+
+        if (profileError) {
+          console.error('Error updating profiles table:', profileError);
+          return NextResponse.json({ error: 'Profile update failed' }, { status: 500 });
+        }
+
+        console.log('Successfully updated subscription for user:', userId);
         break;
       }
 

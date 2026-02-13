@@ -24,12 +24,22 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [showNewDreamModal, setShowNewDreamModal] = useState(false);
+  const [syncing, setSyncing] = useState(false);
+  const [syncMessage, setSyncMessage] = useState('');
   const router = useRouter();
 
   useEffect(() => {
     checkUser();
     fetchDreams();
     fetchProfile();
+    
+    // Auto-sync if returning from successful checkout
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('subscription') === 'success') {
+        handleSyncSubscription();
+      }
+    }
   }, []);
 
   const checkUser = async () => {
@@ -77,6 +87,42 @@ export default function DashboardPage() {
     router.push('/');
   };
 
+  const handleSyncSubscription = async () => {
+    setSyncing(true);
+    setSyncMessage('');
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        setSyncMessage('Please log in to sync subscription');
+        return;
+      }
+
+      const res = await fetch('/api/stripe/sync-subscription', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: user.id }),
+      });
+
+      const data = await res.json();
+      
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to sync subscription');
+      }
+
+      setSyncMessage(data.message || 'Subscription synced successfully!');
+      
+      // Refresh profile to show updated status
+      await fetchProfile();
+      
+      // Clear the URL parameter
+      router.replace('/dashboard');
+    } catch (err) {
+      setSyncMessage(err instanceof Error ? err.message : 'Failed to sync subscription');
+    } finally {
+      setSyncing(false);
+    }
+  };
+
   const filteredDreams = dreams.filter(dream =>
     dream.content.toLowerCase().includes(searchQuery.toLowerCase()) ||
     dream.title?.toLowerCase().includes(searchQuery.toLowerCase())
@@ -117,9 +163,19 @@ export default function DashboardPage() {
                   )}
                 </div>
                 {profile.subscription_status === 'free' && (
-                  <Link href="/pricing" className="text-sm text-soft-lavender hover:underline font-medium">
-                    Upgrade
-                  </Link>
+                  <>
+                    <Link href="/pricing" className="text-sm text-soft-lavender hover:underline font-medium">
+                      Upgrade
+                    </Link>
+                    <button
+                      onClick={handleSyncSubscription}
+                      disabled={syncing}
+                      className="text-sm text-soft-lavender hover:underline font-medium disabled:opacity-50"
+                      title="Sync subscription status from Stripe"
+                    >
+                      {syncing ? 'Syncing...' : 'Sync'}
+                    </button>
+                  </>
                 )}
               </div>
             )}
@@ -131,6 +187,22 @@ export default function DashboardPage() {
       </header>
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 py-8">
+        {/* Sync Message */}
+        {syncMessage && (
+          <div className={`mb-6 p-4 rounded-lg border ${
+            syncMessage.includes('successfully') || syncMessage.includes('synced')
+              ? 'bg-green-900/20 border-green-500/50 text-green-200'
+              : 'bg-red-900/20 border-red-500/50 text-red-200'
+          }`}>
+            <div className="flex justify-between items-center">
+              <span>{syncMessage}</span>
+              <button onClick={() => setSyncMessage('')} className="ml-4 text-sm hover:underline">
+                ✕
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Stats and Actions */}
         <div className="mb-8 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div>
