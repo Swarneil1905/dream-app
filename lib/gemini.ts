@@ -13,7 +13,7 @@ export async function analyzeDream(
   dreamContent: string,
   metadata?: { user_mood?: string | null; tags?: string[] | null }
 ): Promise<DreamInsight> {
-  const model = genAI.getGenerativeModel({ model: 'gemini-1.5-pro' });
+  const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash-preview-09-2025' });
 
   const mood = metadata?.user_mood;
   const tags = metadata?.tags;

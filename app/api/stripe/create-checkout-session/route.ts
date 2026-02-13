@@ -5,14 +5,14 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
   apiVersion: '2024-12-18.acacia',
 });
 
-const priceId = process.env.STRIPE_PRICE_ID;
+const priceId = process.env.NEXT_PUBLIC_STRIPE_PRICE_ID;
 const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
 
 export async function POST(request: NextRequest) {
   try {
     if (!priceId) {
       return NextResponse.json(
-        { error: 'Stripe price is not configured. Add STRIPE_PRICE_ID to your environment.' },
+        { error: 'Stripe price is not configured. Add NEXT_PUBLIC_STRIPE_PRICE_ID to your environment.' },
         { status: 500 }
       );
     }
