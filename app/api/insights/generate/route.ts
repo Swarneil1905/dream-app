@@ -4,6 +4,9 @@ import { analyzeDream } from '@/lib/gemini';
 import type { Database } from '@/lib/database.types';
 
 type Profile = Database['public']['Tables']['profiles']['Row'];
+type ProfileUpdate = Database['public']['Tables']['profiles']['Update'];
+type DreamInsightInsert = Database['public']['Tables']['dream_insights']['Insert'];
+type Json = Database['public']['Tables']['dream_insights']['Row']['emotional_tone'];
 
 export async function POST(request: NextRequest) {
   try {
@@ -42,13 +45,13 @@ export async function POST(request: NextRequest) {
     const insight = await analyzeDream(dreamText, metadata);
 
     // Save insight to database
-    const { data: insightData, error: insightError } = await supabase
-      .from('dream_insights')
+    const { data: insightData, error: insightError } = await (supabase
+      .from('dream_insights') as any)
       .insert({
         dream_id: dreamId,
         analysis_text: insight.fullAnalysis,
         summary: insight.summary,
-        emotional_tone: insight.emotionalTone,
+        emotional_tone: insight.emotionalTone as Json,
         symbolic_interpretation: insight.symbolicInterpretation,
       })
       .select()
@@ -60,9 +63,10 @@ export async function POST(request: NextRequest) {
 
     // Decrement free insight count for free users
     if (userProfile.subscription_status === 'free') {
-      const { error: updateError } = await supabase
-        .from('profiles')
-        .update({ ai_insight_count_free: userProfile.ai_insight_count_free - 1 })
+      const updateData = { ai_insight_count_free: userProfile.ai_insight_count_free - 1 };
+      const { error: updateError } = await (supabase
+        .from('profiles') as any)
+        .update(updateData)
         .eq('id', user.id);
 
       if (updateError) {

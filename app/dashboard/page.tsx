@@ -4,6 +4,11 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase-client';
+import type { Database } from '@/lib/database.types';
+
+type Profile = Database['public']['Tables']['profiles']['Row'];
+type DreamEntryInsert = Database['public']['Tables']['dream_entries']['Insert'];
+type DreamMetadataInsert = Database['public']['Tables']['dream_metadata']['Insert'];
 
 interface Dream {
   id: string;
@@ -69,14 +74,15 @@ export default function DashboardPage() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      const { data, error } = await supabase
-        .from('profiles')
+      const { data, error } = await (supabase
+        .from('profiles') as any)
         .select('ai_insight_count_free, subscription_status')
         .eq('id', user.id)
         .single();
 
       if (error) throw error;
-      setProfile(data);
+      const typedProfile = data as Pick<Profile, 'ai_insight_count_free' | 'subscription_status'>;
+      setProfile(typedProfile);
     } catch (error) {
       console.error('Error fetching profile:', error);
     }
@@ -294,27 +300,27 @@ function NewDreamModal({ onClose }: { onClose: () => void }) {
 
       const wordCount = dreamText.trim().split(/\s+/).length;
 
-      const { data, error } = await supabase
-        .from('dream_entries')
+      const { data, error } = await (supabase
+        .from('dream_entries') as any)
         .insert({
           user_id: user.id,
           content: dreamText,
           title: title || null,
           word_count: wordCount,
-        })
+        } as DreamEntryInsert)
         .select()
         .single();
 
       if (error) throw error;
       // Insert metadata if provided
       if (data && (mood || tags)) {
-        await supabase
-          .from('dream_metadata')
+        await (supabase
+          .from('dream_metadata') as any)
           .insert({
             dream_id: data.id,
             user_mood: mood || null,
             tags: tags ? tags.split(',').map(t => t.trim()) : null,
-          });
+          } as DreamMetadataInsert);
       }
 
       onClose();

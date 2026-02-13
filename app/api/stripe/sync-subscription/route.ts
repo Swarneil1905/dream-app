@@ -2,9 +2,14 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createRouteHandlerClient } from '@/lib/supabase';
 import { createClient } from '@supabase/supabase-js';
 import Stripe from 'stripe';
+import type { Database } from '@/lib/database.types';
+
+type SubscriptionRow = Database['public']['Tables']['subscriptions']['Row'];
+type ProfileUpdate = Database['public']['Tables']['profiles']['Update'];
+type SubscriptionUpdate = Database['public']['Tables']['subscriptions']['Update'];
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
-  apiVersion: '2024-12-18.acacia',
+  apiVersion: '2025-02-24.acacia',
 });
 
 // Use service role key for server-side operations that need to bypass RLS
@@ -51,8 +56,8 @@ export async function POST(request: NextRequest) {
 
     // If customerId is provided, find the user
     if (customerId && !userId) {
-      const { data: subData } = await supabase
-        .from('subscriptions')
+      const { data: subData } = await (supabase
+        .from('subscriptions') as any)
         .select('user_id')
         .eq('stripe_customer_id', customerId)
         .single();
@@ -63,19 +68,19 @@ export async function POST(request: NextRequest) {
           { status: 404 }
         );
       }
-      targetUserId = subData.user_id;
+      targetUserId = (subData as Pick<SubscriptionRow, 'user_id'>).user_id;
     }
 
     // Get customer ID from database if not provided
     let targetCustomerId = customerId;
     if (!targetCustomerId && targetUserId) {
-      const { data: subData } = await supabase
-        .from('subscriptions')
+      const { data: subData } = await (supabase
+        .from('subscriptions') as any)
         .select('stripe_customer_id')
         .eq('user_id', targetUserId)
         .single();
 
-      targetCustomerId = subData?.stripe_customer_id;
+      targetCustomerId = (subData as Pick<SubscriptionRow, 'stripe_customer_id'> | null)?.stripe_customer_id || undefined;
     }
 
     if (!targetCustomerId) {
@@ -104,17 +109,17 @@ export async function POST(request: NextRequest) {
 
     if (subscriptions.data.length === 0) {
       // No active subscription found
-      await supabase
-        .from('profiles')
-        .update({ subscription_status: 'free' })
+      await (supabase
+        .from('profiles') as any)
+        .update({ subscription_status: 'free' } as ProfileUpdate)
         .eq('id', targetUserId);
 
-      await supabase
-        .from('subscriptions')
+      await (supabase
+        .from('subscriptions') as any)
         .update({
           plan_name: 'free',
           stripe_subscription_id: null,
-        })
+        } as SubscriptionUpdate)
         .eq('user_id', targetUserId);
 
       return NextResponse.json({
@@ -151,14 +156,14 @@ export async function POST(request: NextRequest) {
 
     if (existingSub) {
       // Update existing record
-      const { data, error } = await dbClient
-        .from('subscriptions')
+      const { data, error } = await (dbClient
+        .from('subscriptions') as any)
         .update({
           stripe_customer_id: targetCustomerId,
           stripe_subscription_id: subscription.id,
           current_period_end: periodEnd.toISOString(),
           plan_name: isActive ? 'unlimited_pro' : 'free',
-        })
+        } as SubscriptionUpdate)
         .eq('user_id', targetUserId)
         .select()
         .single();
@@ -174,8 +179,8 @@ export async function POST(request: NextRequest) {
         );
       }
       
-      const { data, error } = await adminSupabase
-        .from('subscriptions')
+      const { data, error } = await (adminSupabase
+        .from('subscriptions') as any)
         .insert({
           user_id: targetUserId,
           stripe_customer_id: targetCustomerId,
@@ -201,11 +206,12 @@ export async function POST(request: NextRequest) {
     console.log('Subscriptions updated:', subData);
 
     // Update profile using admin client to ensure it works
-    const { error: profileError } = await (adminSupabase || supabase)
-      .from('profiles')
+    const profileClient = adminSupabase || supabase;
+    const { error: profileError } = await (profileClient
+      .from('profiles') as any)
       .update({
         subscription_status: isActive ? 'active' : 'free',
-      })
+      } as ProfileUpdate)
       .eq('id', targetUserId);
 
     if (profileError) {

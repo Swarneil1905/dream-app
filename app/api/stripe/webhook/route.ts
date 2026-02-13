@@ -2,9 +2,14 @@ import { NextRequest, NextResponse } from 'next/server';
 import { headers } from 'next/headers';
 import { createRouteHandlerClient } from '@/lib/supabase';
 import Stripe from 'stripe';
+import type { Database } from '@/lib/database.types';
+
+type SubscriptionInsert = Database['public']['Tables']['subscriptions']['Insert'];
+type ProfileUpdate = Database['public']['Tables']['profiles']['Update'];
+type SubscriptionUpdate = Database['public']['Tables']['subscriptions']['Update'];
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
-  apiVersion: '2024-12-18.acacia',
+  apiVersion: '2025-02-24.acacia',
 });
 
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET || '';
@@ -72,15 +77,15 @@ export async function POST(request: NextRequest) {
         }
 
         // Update subscription status
-        const { error: subError } = await supabase
-          .from('subscriptions')
+        const { error: subError } = await (supabase
+          .from('subscriptions') as any)
           .upsert({
             user_id: userId,
             stripe_customer_id: customerId,
             stripe_subscription_id: subscriptionId,
             plan_name: 'unlimited_pro',
-            last_webhook_event: event,
-          });
+            last_webhook_event: event as unknown as Database['public']['Tables']['subscriptions']['Row']['last_webhook_event'],
+          } as SubscriptionInsert);
 
         if (subError) {
           console.error('Error updating subscriptions table:', subError);
@@ -88,9 +93,9 @@ export async function POST(request: NextRequest) {
         }
 
         // Update user profile
-        const { error: profileError } = await supabase
-          .from('profiles')
-          .update({ subscription_status: 'active' })
+        const { error: profileError } = await (supabase
+          .from('profiles') as any)
+          .update({ subscription_status: 'active' } as ProfileUpdate)
           .eq('id', userId);
 
         if (profileError) {
@@ -107,8 +112,8 @@ export async function POST(request: NextRequest) {
         const customerId = subscription.customer as string;
 
         // Find user by customer ID
-        const { data: subData } = await supabase
-          .from('subscriptions')
+        const { data: subData } = await (supabase
+          .from('subscriptions') as any)
           .select('user_id, current_period_end')
           .eq('stripe_customer_id', customerId)
           .single();
@@ -116,18 +121,18 @@ export async function POST(request: NextRequest) {
         if (subData) {
           const periodEnd = new Date(subscription.current_period_end * 1000);
           
-          await supabase
-            .from('subscriptions')
+          await (supabase
+            .from('subscriptions') as any)
             .update({
               current_period_end: periodEnd.toISOString(),
-              last_webhook_event: event,
-            })
+              last_webhook_event: event as unknown as Database['public']['Tables']['subscriptions']['Row']['last_webhook_event'],
+            } as SubscriptionUpdate)
             .eq('user_id', subData.user_id);
           // Update status based on subscription status
           const newStatus = subscription.status === 'active' ? 'active' : 'free';
-          await supabase
-            .from('profiles')
-            .update({ subscription_status: newStatus })
+          await (supabase
+            .from('profiles') as any)
+            .update({ subscription_status: newStatus } as ProfileUpdate)
             .eq('id', subData.user_id);
         }
         break;
@@ -138,28 +143,28 @@ export async function POST(request: NextRequest) {
         const customerId = subscription.customer as string;
 
         // Find user and revert to free tier
-        const { data: subData } = await supabase
-          .from('subscriptions')
+        const { data: subData } = await (supabase
+          .from('subscriptions') as any)
           .select('user_id')
           .eq('stripe_customer_id', customerId)
           .single();
 
         if (subData) {
-          await supabase
-            .from('profiles')
+          await (supabase
+            .from('profiles') as any)
             .update({ 
               subscription_status: 'free',
               ai_insight_count_free: 5, // Reset to 5 free insights
-            })
+            } as ProfileUpdate)
             .eq('id', subData.user_id);
 
-          await supabase
-            .from('subscriptions')
+          await (supabase
+            .from('subscriptions') as any)
             .update({
               stripe_subscription_id: null,
               plan_name: 'free',
-              last_webhook_event: event,
-            })
+              last_webhook_event: event as unknown as Database['public']['Tables']['subscriptions']['Row']['last_webhook_event'],
+            } as SubscriptionUpdate)
             .eq('user_id', subData.user_id);
         }
         break;

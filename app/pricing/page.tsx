@@ -4,6 +4,9 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase-client';
+import type { Database } from '@/lib/database.types';
+
+type Profile = Database['public']['Tables']['profiles']['Row'];
 
 export default function PricingPage() {
   const router = useRouter();
@@ -18,12 +21,13 @@ export default function PricingPage() {
       const { data: { user: u } } = await supabase.auth.getUser();
       setUser(u ?? null);
       if (u) {
-        const { data: profile } = await supabase
-          .from('profiles')
+        const { data: profile } = await (supabase
+          .from('profiles') as any)
           .select('subscription_status')
           .eq('id', u.id)
           .single();
-        setSubscriptionStatus(profile?.subscription_status ?? null);
+        const typedProfile = profile as Pick<Profile, 'subscription_status'> | null;
+        setSubscriptionStatus(typedProfile?.subscription_status ?? null);
       }
       setLoading(false);
     })();

@@ -4,6 +4,9 @@ import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase-client';
+import type { Database } from '@/lib/database.types';
+
+type Profile = Database['public']['Tables']['profiles']['Row'];
 
 interface Dream {
   id: string;
@@ -84,13 +87,16 @@ export default function DreamDetailPage() {
       if (insightData) setInsight(insightData);
 
       // Fetch profile
-      const { data: profileData } = await supabase
-        .from('profiles')
+      const { data: profileData } = await (supabase
+        .from('profiles') as any)
         .select('ai_insight_count_free, subscription_status')
         .eq('id', user.id)
         .single();
 
-      if (profileData) setProfile(profileData);
+      if (profileData) {
+        const typedProfile = profileData as Pick<Profile, 'ai_insight_count_free' | 'subscription_status'>;
+        setProfile(typedProfile);
+      }
     } catch (error) {
       console.error('Error fetching dream data:', error);
       setError('Failed to load dream');
