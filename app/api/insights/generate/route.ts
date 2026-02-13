@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createRouteHandlerClient } from '@/lib/supabase';
 import { analyzeDream } from '@/lib/gemini';
+import type { Database } from '@/lib/database.types';
+
+type Profile = Database['public']['Tables']['profiles']['Row'];
 
 export async function POST(request: NextRequest) {
   try {
@@ -21,12 +24,15 @@ export async function POST(request: NextRequest) {
       .eq('id', user.id)
       .single();
 
-    if (profileError) {
+    if (profileError || !profile) {
       return NextResponse.json({ error: 'Failed to fetch profile' }, { status: 500 });
     }
 
+    // Type assertion to ensure TypeScript recognizes the profile type
+    const userProfile = profile as Pick<Profile, 'ai_insight_count_free' | 'subscription_status'>;
+
     // Check if user has insights remaining
-    if (profile.subscription_status === 'free' && profile.ai_insight_count_free <= 0) {
+    if (userProfile.subscription_status === 'free' && userProfile.ai_insight_count_free <= 0) {
       return NextResponse.json(
         { error: 'No free insights remaining. Please upgrade.' },
         { status: 403 }
@@ -53,24 +59,24 @@ export async function POST(request: NextRequest) {
     }
 
     // Decrement free insight count for free users
-    if (profile.subscription_status === 'free') {
+    if (userProfile.subscription_status === 'free') {
       const { error: updateError } = await supabase
         .from('profiles')
-        .update({ ai_insight_count_free: profile.ai_insight_count_free - 1 })
+        .update({ ai_insight_count_free: userProfile.ai_insight_count_free - 1 })
         .eq('id', user.id);
 
       if (updateError) {
         console.error('Failed to update insight count:', updateError);
       }
 
-      profile.ai_insight_count_free -= 1;
+      userProfile.ai_insight_count_free -= 1;
     }
 
     return NextResponse.json({
       insight: insightData,
       profile: {
-        ai_insight_count_free: profile.ai_insight_count_free,
-        subscription_status: profile.subscription_status,
+        ai_insight_count_free: userProfile.ai_insight_count_free,
+        subscription_status: userProfile.subscription_status,
       },
     });
   } catch (error) {
